@@ -7,6 +7,7 @@ library(ggplot2)
 library(plyr)
 library(phyloseq)
 library(DESeq2); packageVersion("DESeq2") # ‘1.28.1’
+library(metagenomeSeq); packageVersion("metagenomeSeq") # ‘1.28.1’
 
 
 # Data source: 16S V1-V3 Sequencing of Severe Early Childhood Caries Affected Subjects
@@ -70,7 +71,8 @@ caries_prab.mds.df$Groups <- caries_meta$group[match(row.names(caries_prab.mds.d
 car_cols <- c("forestgreen", "firebrick4")
 
 # Plot NMDS
-ggplot(caries_prab.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=Groups), show.legend = F, lwd=0.2) + 
+ggplot(caries_prab.mds.df, aes(x=NMDS1, y=NMDS2)) + 
+  #stat_ellipse(alpha=0.8, aes(color=Groups), show.legend = F, lwd=0.2) + 
   geom_point(alpha=0.9, aes(fill = Groups), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=car_cols) + scale_color_manual(values=car_cols) + 
   labs(title = "Species Level: Beta Diversity Comparison", subtitle = "Presence-Absence", fill="Subject Groups") +
   annotate("text", x = max(caries_prab.mds.df$NMDS1)-0.2, y = max(caries_prab.mds.df$NMDS2), 
@@ -167,25 +169,26 @@ caries_ps <- phyloseq(otu_table(caries_counts, taxa_are_rows=FALSE),
                       sample_data(caries_meta))
 
 # Convert to DESeq2
-caries_deseq = phyloseq_to_deseq2(caries_ps, ~ group)
+caries_deseq <- phyloseq_to_deseq2(caries_ps, ~ group) # phyloseq data is converted to the relevant DESeqDataSet object, and design is included
 
 # Compute DESeq2
-caries_deseq_wald_par = DESeq(caries_deseq, test="Wald", fitType="parametric")
+caries_deseq_wald_par <- DESeq(caries_deseq, test="Wald", fitType="parametric")
 
 # Summarize results
-res = results(caries_deseq_wald_par, cooksCutoff = FALSE)
-alpha = 0.01
-sigtab = res[which(res$padj < alpha), ]
+res <- results(caries_deseq_wald_par, cooksCutoff = FALSE)
+alpha <- 0.01
+sigtab <- res[which(res$padj < alpha), ]
 
 # Make data frame
 car_deseq_res <- cbind.data.frame(sigtab)
 car_deseq_res$otu <- row.names(car_deseq_res)
 car_deseq_res <- car_deseq_res[order(car_deseq_res$log2FoldChange, decreasing = T), ]
-dim(car_deseq_res) # 94  7
 
 # Separate health and disease associated biomarkers
 car_deseq_res_dis <- car_deseq_res[car_deseq_res$log2FoldChange > 0, ]
+nrow(car_deseq_res_dis) # 29
 car_deseq_res_health <- car_deseq_res[car_deseq_res$log2FoldChange < 0, ]
+nrow(car_deseq_res_health) # 65
 
 # Sort by fold change
 car_deseq_res_dis$otu <- factor(car_deseq_res_dis$otu, levels = car_deseq_res_dis$otu[order(car_deseq_res_dis$log2FoldChange)])
@@ -194,3 +197,39 @@ car_deseq_res_dis$otu <- factor(car_deseq_res_dis$otu, levels = car_deseq_res_di
 ggplot(car_deseq_res_dis, aes(x=otu, y=log2FoldChange, color=otu)) + geom_point(size=6) + 
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5), legend.key.size = unit(0.05, "cm"), 
         legend.text=element_text(size=5))
+ggsave(file = "figs/caries_pct_deseq.pdf", width = 10, height = 6, units = "in")
+
+
+
+
+## MetagenomeSeq
+
+# Convert Phyloseq object to Metagenomeseq
+caries_metseq <- phyloseq_to_metagenomeSeq(caries_ps) # phyloseq data is converted to the relevant MRexperiment-class object
+
+# Cumulative sum scaling percentile selection
+caries_metseq.p <- cumNormStat(caries_metseq)
+
+# Normalize using the calculated pth quantile value
+caries_metseq.norm = cumNorm(caries_metseq, p = caries_metseq.p)
+
+# Retreive pheno data
+caries_metseq.pheno <- pData(caries_metseq.norm) 
+
+# Create model from pheno data
+caries_metseq.mod <- model.matrix(~1 + group, data = caries_metseq.pheno) # creates a modelmatrix by expanding factors to a set of dummy variables 
+
+# Computes differential abundance analysis using a zero-inflated log-normal mode 
+caries_metseq.res <- fitFeatureModel(caries_metseq, caries_metseq.mod)
+
+# Making table for top features
+caries_metseq.res_top <- MRcoefs(caries_metseq.res, number=100, adjustMethod="BH") # Using Benjamini & Hochberg method for p-value adjustment for multiple comparisons
+
+# Setting threshold as logFC > 2 and adjPvalue < 0.05
+caries_metseq.res_sig <- caries_metseq.res_top[abs(caries_metseq.res_top$logFC) > 2 & caries_metseq.res_top$adjPvalues < 0.05, ] # q threshold can be < 0.1 ?
+
+# Separate health and disease associated biomarkers
+caries_metseq.res_sig_dis <- caries_metseq.res_sig[caries_metseq.res_sig$logFC > 0, ]
+nrow(caries_metseq.res_sig_dis) # 30
+caries_metseq.res_sig_health <- caries_metseq.res_sig[caries_metseq.res_sig$logFC < 0, ]
+nrow(caries_metseq.res_sig_health) # 8
