@@ -5,6 +5,9 @@ library(reshape2)
 library(vegan)
 library(ggplot2)
 library(plyr)
+library(phyloseq)
+library(DESeq2); packageVersion("DESeq2") # ‘1.28.1’
+
 
 # Data source: 16S V1-V3 Sequencing of Severe Early Childhood Caries Affected Subjects
 # Data subset for only Caries Cavity and Intact Enamel Samples
@@ -154,3 +157,40 @@ caries_wilc_species_markers <- caries_caries.wilc.t.disease
 
 
 
+
+
+
+
+
+# Convert to Phyloseq
+caries_ps <- phyloseq(otu_table(caries_counts, taxa_are_rows=FALSE), 
+                      sample_data(caries_meta))
+
+# Convert to DESeq2
+caries_deseq = phyloseq_to_deseq2(caries_ps, ~ group)
+
+# Compute DESeq2
+caries_deseq_wald_par = DESeq(caries_deseq, test="Wald", fitType="parametric")
+
+# Summarize results
+res = results(caries_deseq_wald_par, cooksCutoff = FALSE)
+alpha = 0.01
+sigtab = res[which(res$padj < alpha), ]
+
+# Make data frame
+car_deseq_res <- cbind.data.frame(sigtab)
+car_deseq_res$otu <- row.names(car_deseq_res)
+car_deseq_res <- car_deseq_res[order(car_deseq_res$log2FoldChange, decreasing = T), ]
+dim(car_deseq_res) # 94  7
+
+# Separate health and disease associated biomarkers
+car_deseq_res_dis <- car_deseq_res[car_deseq_res$log2FoldChange > 0, ]
+car_deseq_res_health <- car_deseq_res[car_deseq_res$log2FoldChange < 0, ]
+
+# Sort by fold change
+car_deseq_res_dis$otu <- factor(car_deseq_res_dis$otu, levels = car_deseq_res_dis$otu[order(car_deseq_res_dis$log2FoldChange)])
+
+# Plot Disease associated biomarkers
+ggplot(car_deseq_res_dis, aes(x=otu, y=log2FoldChange, color=otu)) + geom_point(size=6) + 
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5), legend.key.size = unit(0.05, "cm"), 
+        legend.text=element_text(size=5))
