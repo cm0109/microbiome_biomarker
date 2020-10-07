@@ -83,6 +83,74 @@ ggsave(file = "figs/caries_prab_mds.pdf", width = 10, height = 6, units = "in")
 
 
 # I. Wilcoxon on each species + FDR ("BH")
+# Wilcoxon test
+caries_wilc <- sapply(colnames(caries_pct),function(s){
+  #filters for analysis
+  x <- caries_pct[,s]
+  hf <- caries_meta$group %in% c("Intact Enamel","Dentin");
+  #Health Plaque vs Caries Plaque
+  f <- x[hf] ~ caries_meta$group[hf]
+  # Wilcox test
+  wilc.out <- wilcox.test(f, paired = T, exact = FALSE)
+  return(list(
+    pval=wilc.out$p.value
+  ))
+},simplify=FALSE)
+
+# Tabulate and subset significant wilcox test results
+caries_wilc_tab <- ldply(lapply(caries_wilc, function(x){data.frame(x)}))
+length(which(caries_wilc_tab$pval < 0.05)) # 178
+
+#Sig table
+caries_wilc_tab$qval <- p.adjust(caries_wilc_tab$pval, method = "BH") # Apply false discovery correction
+length(which(caries_wilc_tab$qval < 0.05)) # 154
+
+# Filter pct table for sig fried
+caries_pct_sig <- caries_pct[,colnames(caries_pct) %in% caries_wilc_tab$.id[caries_wilc_tab$qval < 0.05]]
+dim(caries_pct_sig) # 68 x 154
+
+# Melt relative abundance table
+caries_pct_sig_m <- melt(as.matrix(caries_pct_sig))
+
+# Assign colnames
+colnames(caries_pct_sig_m) <- c("Sample","otu", "Levels")
+
+# Add group field
+caries_pct_sig_m$group <- caries_meta$group[match(caries_pct_sig_m$Sample, caries_meta$sample)]
+
+# Add q value
+caries_pct_sig_m$qvalue <- signif(caries_wilc_tab$qval[match(caries_pct_sig_m$otu, caries_wilc_tab$.id)],2)
+
+# Levels to %
+caries_pct_sig_m$Levels <- caries_pct_sig_m$Levels*100
+
+
+# Separate increasing/decreasing
+
+# Split by group
+caries_caries_pct_split <- split(caries_pct_sig, droplevels(caries_meta$group))
+
+# Sum for each group
+caries_caries_pct_split_sum <- ldply(lapply(caries_caries_pct_split, colSums))
+row.names(caries_caries_pct_split_sum) <- caries_caries_pct_split_sum$.id
+caries_caries_pct_split_sum$.id <- NULL
+
+# Transpose
+caries_caries.wilc.t <- data.frame(t(caries_caries_pct_split_sum), check.names = F)
+dim(caries_caries.wilc.t) # 72 x 2
+
+# Increasing/Decreasing
+caries_caries.wilc.t.disease <- caries_caries.wilc.t[caries_caries.wilc.t$Dentin > caries_caries.wilc.t$`Intact Enamel`,]
+caries_caries.wilc.t.health <- caries_caries.wilc.t[caries_caries.wilc.t$`Intact Enamel` > caries_caries.wilc.t$Dentin,]
+
+caries_caries.wilc.t.disease$diff <- caries_caries.wilc.t.disease$Dentin - caries_caries.wilc.t.disease$`Intact Enamel`
+
+# Count
+nrow(caries_caries.wilc.t.disease) # 23
+nrow(caries_caries.wilc.t.health) # 131
+
+# Rename
+caries_wilc_species_markers <- caries_caries.wilc.t.disease
 
 
 
