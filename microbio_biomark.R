@@ -4,6 +4,7 @@
 library(reshape2)
 library(vegan)
 library(ggplot2)
+library(plyr)
 
 # Data source: 16S V1-V3 Sequencing of Severe Early Childhood Caries Affected Subjects
 # Data subset for only Caries Cavity and Intact Enamel Samples
@@ -75,3 +76,13 @@ ggplot(caries_prab.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(
         axis.title = element_text(size=10, face="bold"), axis.text = element_text(size=8, face="bold"), legend.position="bottom", axis.line = element_line(size = 0.3),
         legend.title = element_text(size=13, face="bold"), legend.text = element_text(size = 11))
 ggsave(file = "figs/caries_prab_mds.pdf", width = 10, height = 6, units = "in")
+
+
+
+# Methods to identify differentially abundance species
+
+
+# I. Wilcoxon on each species + FDR ("BH")
+
+
+
