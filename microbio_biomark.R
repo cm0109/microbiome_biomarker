@@ -1,6 +1,6 @@
 # Using Caries data for researching methods for microbiome-based biomarker discovery
 
-
+# Load required libraries
 library(reshape2)
 library(vegan)
 library(ggplot2)
