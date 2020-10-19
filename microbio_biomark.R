@@ -8,6 +8,8 @@ library(plyr)
 library(phyloseq)
 library(DESeq2); packageVersion("DESeq2") # ‘1.28.1’
 library(metagenomeSeq); packageVersion("metagenomeSeq") # ‘1.28.1’
+library(randomForest)
+library(caret)
 
 
 # Data source: 16S V1-V3 Sequencing of Severe Early Childhood Caries Affected Subjects
