@@ -10,22 +10,65 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library("randomForest")
+library("plyr") # for the "arrange" function
+library("rfUtilities") # to test model significance
+library("caret") # to get leave-one-out cross-validation accuracies and also contains the nearZeroVar function
+library(e1071)
+library(ggplot2)
+library(vegan)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+otu_table <- readRDS("data/v13_counts_hd.rds")
+metadata <- readRDS("data/meta_hd.rds")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r}
+
+# Convert to relative abundance
+otu_table_pct <- decostand(otu_table, method = "total")
+
+# Compute NMDS
+set.seed(12345); capture.output(otu_table_pct.mds <- metaMDS(otu_table_pct, trymax = 200, autotransform = F, wascores = F))
+
+# Permanova
+set.seed(12345); otu_table_pct.perm <- adonis(formula = otu_table_pct ~ metadata$status) # R2 0.25679, p < 0.001***
+
+# Making dataframe for plotting
+otu_table_pct.mds.df <- data.frame(scores(otu_table_pct.mds, display = 'sites'))
+otu_table_pct.mds.df$status <- metadata$status[match(row.names(otu_table_pct.mds.df), row.names(metadata))]
+
+# Colors
+two_cols <- c("forestgreen", "firebrick4")
+```
+
+
+```{r}
+# Plot NMDS
+ggplot(otu_table_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
+  geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=two_cols) + scale_color_manual(values=two_cols) + 
+  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject state") +
+  geom_text(aes(label=rownames(otu_table_pct.mds.df)), size=3) + 
+  annotate("text", x = (min(otu_table_pct.mds.df$NMDS1) + max(otu_table_pct.mds.df$NMDS1))/2, y = max(otu_table_pct.mds.df$NMDS2), 
+           label = paste("p <", otu_table_pct.perm$aov.tab$`Pr(>F)`[1], "(PERMANOVA)", sep=" ")) + theme_classic() +
+  theme(plot.title = element_text(size=15, face="bold", hjust=0.5), plot.subtitle = element_text(size=10, hjust=0.5), 
+        axis.title = element_text(size=10, face="bold"), axis.text = element_text(size=8, face="bold"), legend.position="bottom", axis.line = element_line(size = 0.3),
+        legend.title = element_text(size=13, face="bold"), legend.text = element_text(size = 11))
+ggsave(file = "figs/otu_table_pct_mds.pdf", width = 10, height = 6, units = "in")
+```
+
+
+
+
+```{r}
+# Removing EG_204_d as an outlier
+otu_table_filt <- otu_table[row.names(otu_table) != "EG_204_d", ]
+dim(otu_table_filt)
+metadata_filt <- metadata[row.names(metadata) != "EG_204_d", ]
+```
+
