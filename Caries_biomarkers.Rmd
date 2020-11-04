@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library("randomForest")
-library("plyr") # for the "arrange" function
+library(plyr) # for the "arrange" function
 library(rfUtilities) # to test model significance
 library(caret) # to get leave-one-out cross-validation accuracies and also contains the nearZeroVar function
 library(e1071)
@@ -49,7 +49,7 @@ otu_table_pct.mds.df$status <- metadata$status[match(row.names(otu_table_pct.mds
 # Plot NMDS
 ggplot(otu_table_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
   geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=c("firebrick4", "forestgreen")) + scale_color_manual(values=c("firebrick4", "forestgreen")) + 
-  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject state") +
+  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject status") +
   geom_text(aes(label=rownames(otu_table_pct.mds.df)), size=2) + 
   annotate("text", x = (min(otu_table_pct.mds.df$NMDS1) + max(otu_table_pct.mds.df$NMDS1))/2, y = max(otu_table_pct.mds.df$NMDS2)+0.1, 
            label = paste("p <", otu_table_pct.perm$aov.tab$`Pr(>F)`[1], "(PERMANOVA)", sep=" ")) + theme_classic() +
@@ -91,7 +91,7 @@ otu_table_filt_pct.mds.df$status <- metadata_filt$status[match(row.names(otu_tab
 ggplot(otu_table_filt_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
   geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=c("firebrick4", "forestgreen")) +
   scale_color_manual(values=c("firebrick4", "forestgreen")) + 
-  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject state") +
+  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject status") +
   #geom_text(aes(label=rownames(otu_table_filt_pct.mds.df)), size=3) + 
   annotate("text", x = (min(otu_table_filt_pct.mds.df$NMDS1) + max(otu_table_filt_pct.mds.df$NMDS1))/2, y = max(otu_table_filt_pct.mds.df$NMDS2)+0.1, 
            label = paste("p <", otu_table_filt_pct.perm$aov.tab$`Pr(>F)`[1], "(PERMANOVA)", sep=" ")) + theme_classic() +
@@ -131,10 +131,11 @@ otu_table_filt_rare_removed_pct.mds.df$status <- metadata_filt$status[match(row.
 ggplot(otu_table_filt_rare_removed_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
   geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=c("firebrick4", "forestgreen")) +
   scale_color_manual(values=c("firebrick4", "forestgreen")) + 
-  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject state") +
   #geom_text(aes(label=rownames(otu_table_filt_rare_removed_pct.mds.df)), size=3) + 
-  annotate("text", x = (min(otu_table_filt_rare_removed_pct.mds.df$NMDS1) + max(otu_table_filt_rare_removed_pct.mds.df$NMDS1))/2, y = max(otu_table_filt_rare_removed_pct.mds.df$NMDS2)+0.1, 
+  annotate("text", x = (min(otu_table_filt_rare_removed_pct.mds.df$NMDS1) + max(otu_table_filt_rare_removed_pct.mds.df$NMDS1))/2, 
+           y = max(otu_table_filt_rare_removed_pct.mds.df$NMDS2)+0.1, 
            label = paste("p <", otu_table_filt_rare_removed_pct.perm$aov.tab$`Pr(>F)`[1], "(PERMANOVA)", sep=" ")) + theme_classic() +
+  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject status") +
   theme(plot.title = element_text(size=15, face="bold", hjust=0.5), plot.subtitle = element_text(size=10, hjust=0.5), 
         axis.title = element_text(size=10, face="bold"), axis.text = element_text(size=8, face="bold"), legend.position="bottom", 
         axis.line = element_line(size = 0.3), legend.title = element_text(size=13, face="bold"), legend.text = element_text(size = 11))
@@ -172,19 +173,47 @@ ggplot(data=oob.error.data, aes(x=Trees, y=Error)) + geom_line(aes(color=Type))
 
 ```{r, eval=FALSE}
 #Evaluate is set to false to reduce Knit time
-RF_state_classify_sig <- rf.significance( x=RF_status_classify, xdata=otu_table_filt_rare_removed_pct,
+RF_status_classify_sig <- rf.significance( x=RF_status_classify, xdata=otu_table_filt_rare_removed_pct,
                                           nperm=1000 , ntree=501 )
-RF_state_classify_sig
+RF_status_classify_sig
 ```
 
 ### Accuracy Estimated by Cross-validation
 
 ```{r}
 fit_control <- trainControl(method = "LOOCV")    
-RF_state_classify_loocv <- train(x=otu_table_filt_rare_removed_pct, y=metadata_filt$status,
+RF_status_classify_loocv <- train(x=otu_table_filt_rare_removed_pct, y=metadata_filt$status,
                                   method="rf", ntree=501 , tuneGrid=data.frame(mtry=25), trControl=fit_control)
-RF_state_classify_loocv
+RF_status_classify_loocv
 
 ```
 
+
+## Identifying Important Features
+```{r}
+RF_status_classify_imp <- as.data.frame(RF_status_classify$importance)
+RF_status_classify_imp$features <- rownames(RF_status_classify_imp)
+RF_status_classify_imp_25 <- RF_status_classify_imp[order(RF_status_classify_imp$MeanDecreaseAccuracy, decreasing = TRUE), ][c(1:25), ]
+```
+
+
+```{r}
+ggplot(RF_status_classify_imp_25[c(1:25), ], aes(x = reorder(features, -MeanDecreaseAccuracy), MeanDecreaseAccuracy)) + geom_bar(stat="identity") +
+  labs(title = "Most Important Features (Species)", subtitle = "Mean Decrease in Accuracy") +
+  theme(plot.title = element_text(size=15, face="bold", hjust=1), plot.subtitle = element_text(size=10, hjust=0.5), 
+        axis.title = element_text(size=10, face="bold"), axis.text = element_text(size=8, face="bold"), legend.position="bottom", 
+        axis.text.x = element_text(angle = 90, hjust=0.5),
+        axis.line = element_line(size = 0.3), legend.title = element_text(size=13, face="bold"), legend.text = element_text(size = 11))
+ggsave(file = "figs/otu_table_filt_rare_removed_pct_mds.pdf", width = 10, height = 6, units = "in")
+```
+
+
+
+MeanDecreaseAccuracy: Measure of the extent to which a variable improves the accuracy of the forest in predicting the classification. Higher values mean that the variable improves prediction. In a rough sense, it can be interpreted as showing the amount of increase in classification accuracy that is provided by including the variable in the model
+
+How many features (species) have positive Mean Decrease Accuracy?
+```{r}
+length(which(RF_state_classify_imp$MeanDecreaseAccuracy > 0))
+important_features <- RF_state_classify_imp$features[RF_state_classify_imp$MeanDecreaseAccuracy > 0]
+```
 
