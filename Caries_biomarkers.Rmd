@@ -3,7 +3,6 @@ title: "Caries_Biomarkers"
 author: "Chiranjit Mukherjee"
 date: "11/3/2020"
 output: html_document
-  keep_md=TRUE
 ---
 
 ```{r setup, include=FALSE}
@@ -213,7 +212,7 @@ MeanDecreaseAccuracy: Measure of the extent to which a variable improves the acc
 
 How many features (species) have positive Mean Decrease Accuracy?
 ```{r}
-length(which(RF_state_classify_imp$MeanDecreaseAccuracy > 0))
-important_features <- RF_state_classify_imp$features[RF_state_classify_imp$MeanDecreaseAccuracy > 0]
+length(which(RF_status_classify_imp$MeanDecreaseAccuracy > 0))
+important_features <- RF_status_classify_imp$features[RF_status_classify_imp$MeanDecreaseAccuracy > 0]
 ```
 
