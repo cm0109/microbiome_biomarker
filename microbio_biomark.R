@@ -49,7 +49,7 @@ ggplot(caries_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(c
   theme(plot.title = element_text(size=15, face="bold", hjust=0.5), plot.subtitle = element_text(size=10, hjust=0.5), 
         axis.title = element_text(size=10, face="bold"), axis.text = element_text(size=8, face="bold"), legend.position="bottom", axis.line = element_line(size = 0.3),
         legend.title = element_text(size=13, face="bold"), legend.text = element_text(size = 11))
-ggsave(file = "figs/caries_pct_mds.pdf", width = 10, height = 6, units = "in")
+ggsave(file = "figs/caries_pct_mds_inenamel_dentin.pdf", width = 10, height = 6, units = "in")
 
 
 # Presence/Absence
@@ -82,7 +82,7 @@ ggplot(caries_prab.mds.df, aes(x=NMDS1, y=NMDS2)) +
   theme(plot.title = element_text(size=15, face="bold", hjust=0.5), plot.subtitle = element_text(size=10, hjust=0.5), 
         axis.title = element_text(size=10, face="bold"), axis.text = element_text(size=8, face="bold"), legend.position="bottom", axis.line = element_line(size = 0.3),
         legend.title = element_text(size=13, face="bold"), legend.text = element_text(size = 11))
-ggsave(file = "figs/caries_prab_mds.pdf", width = 10, height = 6, units = "in")
+ggsave(file = "figs/caries_prab_mds_inenamel_dentin.pdf", width = 10, height = 6, units = "in")
 
 
 
@@ -235,3 +235,6 @@ caries_metseq.res_sig_dis <- caries_metseq.res_sig[caries_metseq.res_sig$logFC >
 nrow(caries_metseq.res_sig_dis) # 30
 caries_metseq.res_sig_health <- caries_metseq.res_sig[caries_metseq.res_sig$logFC < 0, ]
 nrow(caries_metseq.res_sig_health) # 8
+
+
+

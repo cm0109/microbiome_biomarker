@@ -10,69 +10,32 @@ output:
 
 
 
+<br>
+
+Often in Microbiome studies we visualize high dimensional data using techniques such as NMDS ordination. These ordination methods are a great way to 'see' how two groups of data, for example samples from healthy and disease subjects, are different from each other in terms of their overall microbial profile. The next question then is what are some of the most important features, or species, that drive the difference between the 2 groups in question. Answering that question will help us identify specific bacteria that might be the drivers of dysbiosis. As such these key species can be considered 'biomarkers' for dysbiosis, and can eventually become target for preventative or therapeutic interventions.
+
+Here I have described an approach for identifying key biomarkers involved in oral microbiota dysbiosis associated with development of dental caries. The dataset used is amplicon sequencing (16S V1-V3) of healthy children's supragingival plaque (tooth surface biofilm) and severe early childhood caries (SECC) affected children's tooth cavity (dentin) samples.
+
+I have applied the Machine Learning method 'Random Forest' to model the high dimensional species counts data, and used the information to produce a list of most important species. 
+
+<br>
+
+Load required R packages
+
+
 ```r
-library("randomForest")
-```
-
-```
-## randomForest 4.6-14
-```
-
-```
-## Type rfNews() to see new features/changes/bug fixes.
-```
-
-```r
+library(randomForest)
 library(plyr) # for the "arrange" function
 library(rfUtilities) # to test model significance
 library(caret) # to get leave-one-out cross-validation accuracies and also contains the nearZeroVar function
-```
-
-```
-## Loading required package: lattice
-```
-
-```
-## Loading required package: ggplot2
-```
-
-```
-## 
-## Attaching package: 'ggplot2'
-```
-
-```
-## The following object is masked from 'package:randomForest':
-## 
-##     margin
-```
-
-```r
 library(e1071)
 library(ggplot2)
 library(vegan)
 ```
 
-```
-## Loading required package: permute
-```
+<br>
 
-```
-## This is vegan 2.5-6
-```
-
-```
-## 
-## Attaching package: 'vegan'
-```
-
-```
-## The following object is masked from 'package:caret':
-## 
-##     tolerance
-```
-
-
+Load otu table and relevant metadata 
 
 ```r
 otu_table <- readRDS("data/v13_counts_hd.rds")
@@ -80,7 +43,7 @@ metadata <- readRDS("data/meta_hd.rds")
 ```
 
 
-
+Convert to Relative Abundance & Compute NMDS
 
 ```r
 # Convert to relative abundance
@@ -132,10 +95,11 @@ otu_table_pct.mds.df <- data.frame(scores(otu_table_pct.mds, display = 'sites'))
 otu_table_pct.mds.df$status <- metadata$status[match(row.names(otu_table_pct.mds.df), row.names(metadata))]
 ```
 
+<br>
 
+Plot NMDS
 
 ```r
-# Plot NMDS
 ggplot(otu_table_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
   geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=c("firebrick4", "forestgreen")) + scale_color_manual(values=c("firebrick4", "forestgreen")) + 
   labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject status") +
@@ -153,12 +117,11 @@ ggplot(otu_table_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, ae
 ggsave(file = "figs/otu_table_pct_mds.pdf", width = 10, height = 6, units = "in")
 ```
 
+<br>
 
-
-
+Removing EG_204_d as an outlier
 
 ```r
-# Removing EG_204_d as an outlier
 otu_table_filt <- otu_table[row.names(otu_table) != "EG_204_d", ]
 dim(otu_table_filt)
 ```
@@ -171,9 +134,11 @@ dim(otu_table_filt)
 metadata_filt <- metadata[row.names(metadata) != "EG_204_d", ]
 ```
 
+<br>
+
+Convert to Relative Abundance & Compute NMDS
 
 ```r
-# Convert to relative abundance
 otu_table_filt_pct <- decostand(otu_table_filt, method = "total")
 
 # Compute NMDS
@@ -245,10 +210,11 @@ otu_table_filt_pct.perm # R2: 0.27237, p < 0.001 ***
 otu_table_filt_pct.mds.df <- data.frame(scores(otu_table_filt_pct.mds, display = 'sites'))
 otu_table_filt_pct.mds.df$status <- metadata_filt$status[match(row.names(otu_table_filt_pct.mds.df), row.names(metadata_filt))]
 ```
+<br>
 
+Plot NMDS
 
 ```r
-# Plot NMDS
 ggplot(otu_table_filt_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
   geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=c("firebrick4", "forestgreen")) +
   scale_color_manual(values=c("firebrick4", "forestgreen")) + 
@@ -267,8 +233,9 @@ ggplot(otu_table_filt_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.
 ggsave(file = "figs/otu_table_filt_pct_mds.pdf", width = 10, height = 6, units = "in")
 ```
 
+<br>
 
-#### Filter out rare OTUs 
+Filter out rare OTUs
 Keeping only those OTUs which have less than 30 (75% of total number of samples) times 0 values in the dataset
 
 ```r
@@ -279,10 +246,11 @@ dim(otu_table_filt_rare_removed) #  [1] 63 x 166 (166 species remain, of the 343
 ```
 ## [1]  63 166
 ```
+<br>
 
+Convert to Relative Abundance & Compute NMDS
 
 ```r
-# Convert to relative abundance
 otu_table_filt_rare_removed_pct <- decostand(otu_table_filt_rare_removed, method = "total")
 
 # Compute NMDS
@@ -348,10 +316,11 @@ otu_table_filt_rare_removed_pct.perm # R2: 0.28585, p < 0.001 ***
 otu_table_filt_rare_removed_pct.mds.df <- data.frame(scores(otu_table_filt_rare_removed_pct.mds, display = 'sites'))
 otu_table_filt_rare_removed_pct.mds.df$status <- metadata_filt$status[match(row.names(otu_table_filt_rare_removed_pct.mds.df), row.names(metadata_filt))]
 ```
+<br>
 
+Plot NMDS
 
 ```r
-# Plot NMDS
 ggplot(otu_table_filt_rare_removed_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
   geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=c("firebrick4", "forestgreen")) +
   scale_color_manual(values=c("firebrick4", "forestgreen")) + 
@@ -371,11 +340,9 @@ ggplot(otu_table_filt_rare_removed_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ell
 ggsave(file = "figs/otu_table_filt_rare_removed_pct_mds.pdf", width = 10, height = 6, units = "in")
 ```
 
+<br>
 
-
-
-
-
+Build Random Forest Model & inspect confusion matrix
 
 ```r
 set.seed(123); RF_status_classify <- randomForest(x=otu_table_filt_rare_removed_pct, y=metadata_filt$status,
@@ -398,9 +365,9 @@ RF_status_classify
 ## Healthy      1      29  0.03333333
 ```
 
+<br>
 
-
-
+Plot Out Of Bag (OOB) error rate
 
 ```r
 oob.error.data <- data.frame(
@@ -419,9 +386,9 @@ ggplot(data=oob.error.data, aes(x=Trees, y=Error)) + geom_line(aes(color=Type))
 # ggsave("oob_error_rate_500_trees.pdf")
 ```
 
+<br>
 
-### Permutation Testing Model Performance
-
+Permutation Testing Model Performance
 
 ```r
 #Evaluate is set to false to reduce Knit time
@@ -430,8 +397,9 @@ RF_status_classify_sig <- rf.significance( x=RF_status_classify, xdata=otu_table
 RF_status_classify_sig
 ```
 
-### Accuracy Estimated by Cross-validation
+<br>
 
+Accuracy Estimated by Cross-validation
 
 ```r
 fit_control <- trainControl(method = "LOOCV")    
@@ -458,16 +426,20 @@ RF_status_classify_loocv
 ## Tuning parameter 'mtry' was held constant at a value of 25
 ```
 
+<br>
 
-## Identifying Important Features
+Identifying Important Features
 
 ```r
 RF_status_classify_imp <- as.data.frame(RF_status_classify$importance)
 RF_status_classify_imp$features <- rownames(RF_status_classify_imp)
 RF_status_classify_imp_25 <- RF_status_classify_imp[order(RF_status_classify_imp$MeanDecreaseAccuracy, decreasing = TRUE), ][c(1:25), ]
 ```
+MeanDecreaseAccuracy: Measure of the extent to which a variable improves the accuracy of the forest in predicting the classification. Higher values mean that the variable improves prediction. In a rough sense, it can be interpreted as showing the amount of increase in classification accuracy that is provided by including the variable in the model
 
+<br>
 
+Inspect most important features (species)
 
 ```r
 ggplot(RF_status_classify_imp_25[c(1:25), ], aes(x = reorder(features, -MeanDecreaseAccuracy), MeanDecreaseAccuracy)) + geom_bar(stat="identity") +
@@ -481,12 +453,10 @@ ggplot(RF_status_classify_imp_25[c(1:25), ], aes(x = reorder(features, -MeanDecr
 ![](Caries_biomarkers_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 ```r
-ggsave(file = "figs/otu_table_filt_rare_removed_pct_mds.pdf", width = 10, height = 6, units = "in")
+ggsave(file = "figs/otu_table_filt_rare_removed_pct_imp.pdf", width = 10, height = 6, units = "in")
 ```
 
-
-
-MeanDecreaseAccuracy: Measure of the extent to which a variable improves the accuracy of the forest in predicting the classification. Higher values mean that the variable improves prediction. In a rough sense, it can be interpreted as showing the amount of increase in classification accuracy that is provided by including the variable in the model
+<br>
 
 How many features (species) have positive Mean Decrease Accuracy?
 
@@ -502,3 +472,91 @@ length(which(RF_status_classify_imp$MeanDecreaseAccuracy > 0))
 important_features <- RF_status_classify_imp$features[RF_status_classify_imp$MeanDecreaseAccuracy > 0]
 ```
 
+<br>
+
+Remove important features 
+ 
+
+```r
+# Filter out important features
+otu_table_filt_rare_removed_imp_removed <- otu_table_filt_rare_removed[, !(colnames(otu_table_filt_rare_removed) %in% important_features)]
+ncol(otu_table_filt_rare_removed) - ncol(otu_table_filt_rare_removed_imp_removed) # 123 features removed
+```
+
+```
+## [1] 123
+```
+
+```r
+# Compute rel. abundances
+otu_table_filt_rare_removed_imp_removed_pct <- decostand(otu_table_filt_rare_removed_imp_removed, method="total")
+
+# Compute NMDS
+set.seed(12345); capture.output(otu_table_filt_rare_removed_imp_removed_pct.mds <- metaMDS(otu_table_filt_rare_removed_imp_removed_pct, trymax = 200, autotransform = F, wascores = F))
+```
+
+```
+##  [1] "Run 0 stress 0.1709504 "                                   
+##  [2] "Run 1 stress 0.1904594 "                                   
+##  [3] "Run 2 stress 0.1834458 "                                   
+##  [4] "Run 3 stress 0.1538428 "                                   
+##  [5] "... New best solution"                                     
+##  [6] "... Procrustes: rmse 0.05324032  max resid 0.3122938 "     
+##  [7] "Run 4 stress 0.1835093 "                                   
+##  [8] "Run 5 stress 0.1538427 "                                   
+##  [9] "... New best solution"                                     
+## [10] "... Procrustes: rmse 2.512646e-05  max resid 0.0001448453 "
+## [11] "... Similar to previous best"                              
+## [12] "Run 6 stress 0.1782886 "                                   
+## [13] "Run 7 stress 0.1544531 "                                   
+## [14] "Run 8 stress 0.1950964 "                                   
+## [15] "Run 9 stress 0.2044425 "                                   
+## [16] "Run 10 stress 0.1574374 "                                  
+## [17] "Run 11 stress 0.2004102 "                                  
+## [18] "Run 12 stress 0.1862222 "                                  
+## [19] "Run 13 stress 0.1827019 "                                  
+## [20] "Run 14 stress 0.1595281 "                                  
+## [21] "Run 15 stress 0.1581305 "                                  
+## [22] "Run 16 stress 0.174148 "                                   
+## [23] "Run 17 stress 0.1651966 "                                  
+## [24] "Run 18 stress 0.1701288 "                                  
+## [25] "Run 19 stress 0.3084473 "                                  
+## [26] "Run 20 stress 0.1671594 "                                  
+## [27] "*** Solution reached"
+```
+
+```r
+# Permanova
+set.seed(12345); otu_table_filt_rare_removed_imp_removed_pct.perm <- adonis(formula = otu_table_filt_rare_removed_imp_removed_pct ~ metadata_filt$status) # R2 0.19607, p < 0.001
+
+# Making dataframe for plotting
+otu_table_filt_rare_removed_imp_removed_pct.mds.df <- data.frame(scores(otu_table_filt_rare_removed_imp_removed_pct.mds, display = 'sites'))
+otu_table_filt_rare_removed_imp_removed_pct.mds.df$status <- metadata_filt$status[match(row.names(otu_table_filt_rare_removed_imp_removed_pct.mds.df), row.names(metadata_filt))]
+```
+<br>
+  
+  Plot NMDS
+
+```r
+ggplot(otu_table_filt_rare_removed_imp_removed_pct.mds.df, aes(x=NMDS1, y=NMDS2)) + stat_ellipse(alpha=0.8, aes(color=status), show.legend = F, lwd=0.2) + 
+  geom_point(alpha=0.9, aes(fill = status), size=3, color="black", pch=21, stroke=0.2) + scale_fill_manual(values=c("firebrick4", "forestgreen")) +
+  scale_color_manual(values=c("firebrick4", "forestgreen")) + 
+  #geom_text(aes(label=rownames(otu_table_filt_rare_removed_pct.mds.df)), size=3) + 
+  annotate("text", x = (min(otu_table_filt_rare_removed_imp_removed_pct.mds.df$NMDS1) + max(otu_table_filt_rare_removed_imp_removed_pct.mds.df$NMDS1))/2, 
+           y = max(otu_table_filt_rare_removed_imp_removed_pct.mds.df$NMDS2)+0.1, 
+           label = paste("p <", otu_table_filt_rare_removed_imp_removed_pct.perm$aov.tab$`Pr(>F)`[1], "(PERMANOVA)", sep=" ")) + theme_classic() +
+  labs(title = "Beta Diversity Comparison", subtitle = "Relative Abundance", fill="Subject status") +
+  theme(plot.title = element_text(size=15, face="bold", hjust=0.5), plot.subtitle = element_text(size=10, hjust=0.5), 
+        axis.title = element_text(size=10, face="bold"), axis.text = element_text(size=8, face="bold"), legend.position="bottom", 
+        axis.line = element_line(size = 0.3), legend.title = element_text(size=13, face="bold"), legend.text = element_text(size = 11))
+```
+
+![](Caries_biomarkers_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+
+```r
+ggsave(file = "figs/otu_table_filt_rare_removed_imp_removed_pct_mds.pdf", width = 10, height = 6, units = "in")
+```
+<br>
+
+
+Thus we see that using RF classification, we are able to identify the most important features (species) that distinguish the 2 groups (health vs disease).
